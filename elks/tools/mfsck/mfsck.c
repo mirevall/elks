@@ -782,10 +782,8 @@ check_root2 (void) {
 
 static int
 add_zone(unsigned short * znr, int * corrected) {
-	int result;
 	int block;
 
-	result = 0;
 	block = check_zone_nr(znr, corrected);
 	if (!block)
 		return 0;
@@ -815,10 +813,8 @@ add_zone(unsigned short * znr, int * corrected) {
 
 static int
 add_zone2 (unsigned int *znr, int *corrected) {
-	int result;
 	int block;
 
-	result = 0;
 	block = check_zone_nr2 (znr, corrected);
 	if (!block)
 		return 0;
@@ -1377,13 +1373,13 @@ main(int argc, char ** argv) {
 		for (i=1,free=0 ; i <= INODES ; i++)
 			if (!inode_in_use(i))
 				free++;
-		printf(_("\n%6ld inodes used (%ld%%)\n"),(INODES-free),
-			100*(INODES-free)/INODES);
+		printf(_("\n%6ld inodes used (%2ld%%) %6ld total\n"),(INODES-free),
+			100*(INODES-free)/INODES, INODES);
 		for (i=FIRSTZONE,free=0 ; i < ZONES ; i++)
 			if (!zone_in_use(i))
 				free++;
-		printf(_("%6ld zones used (%ld%%)\n"),(ZONES-free),
-			100*(ZONES-free)/ZONES);
+		printf(_("%6ld  zones used (%2ld%%) %6ld total\n"),
+			(ZONES-free), 100*(ZONES-free)/ZONES, ZONES);
 		printf(_("\n%6d regular files\n"
 		"%6d directories\n"
 		"%6d character device files\n"

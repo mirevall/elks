@@ -90,7 +90,7 @@ enum RxFilter {
 #define EP_ID_PORT_END 0x200
 #define EP_TAG_MAX		0x7 /* must be 2^n - 1 */
 
-static int el3_isa_probe();
+static int INITPROC el3_isa_probe();
 //static word_t read_eeprom(int, int);
 static word_t id_read_eeprom(int);
 static size_t el3_write(struct inode *, struct file *, char *, size_t);
@@ -141,7 +141,7 @@ struct file_operations el3_fops =
     el3_release
 };
 
-void el3_drv_init(void) {
+void INITPROC el3_drv_init(void) {
 	ioaddr = net_port;		// temporary
 
 	verbose = (net_flags&ETHF_VERBOSE);
@@ -156,7 +156,7 @@ void el3_drv_init(void) {
 
 }
 
-static int el3_find_id_port ( void ) {
+static int INITPROC el3_find_id_port ( void ) {
 
 	for ( el3_id_port = EP_ID_PORT_START ;
 	      el3_id_port < EP_ID_PORT_END ;
@@ -176,7 +176,7 @@ static int el3_find_id_port ( void ) {
 }
 
 /* Return 0 on success, 1 on error */
-static int el3_isa_probe( void )
+static int INITPROC el3_isa_probe( void )
 {
 	short lrs_state = 0xff;
 	int i;
@@ -202,7 +202,7 @@ static int el3_isa_probe( void )
 
 	outb(0xd0, el3_id_port);		// select tag (0)
 	outb(0xe0 |(ioaddr >> 4), el3_id_port );// Set IOBASE address, activate
-	printk("eth: %s at 0x%x, irq %d", dev_name, ioaddr, net_irq);
+	printk("eth: %s at %x, irq %d", dev_name, ioaddr, net_irq);
 
 	if (id_read_eeprom(EEPROM_MFG_ID) != 0x6d50) {
 		printk(" not found\n");
@@ -360,7 +360,7 @@ static void el3_int(int irq, struct pt_regs *regs)
 					//printk("eth: RX error, status %04x len %d\n", err&0x3800, err&0x7ff);
 					netif_stat.rx_errors++;
 				} else {
-					if (verbose) printk(EMSG_OFLOW, model_name, 0);
+					if (verbose) printk(EMSG_OFLOW, model_name, 0, netif_stat.oflow_keep);
 					netif_stat.oflow_errors++;
 				}
 				outw(RxDiscard, ioaddr + EL3_CMD); /* Discard this packet. */

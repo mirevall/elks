@@ -46,10 +46,15 @@ static struct timezone xzone;
 /* timezone offset (in hours) from CONFIG_TIME_TZ or /bootopts TZ= string */
 int tz_offset;
 
-void tz_init(const char *tzstr)
+void INITPROC tz_init(const char *tzstr)
 {
     if (strlen(tzstr) > 3)
         tz_offset = atoi(tzstr+3);
+}
+
+time_t current_time(void)
+{
+    return (xtime.tv_sec + (jiffies - xtime_jiffies)/HZ);
 }
 
 /* set the time of day */

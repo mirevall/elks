@@ -24,6 +24,7 @@ SUBDIRS =       \
 	bc          \
 	busyelks    \
 	disk_utils  \
+	fsck_dos    \
 	elvis	    \
 	file_utils  \
 	inet        \
@@ -55,6 +56,9 @@ all:
 	for DIR in $(SUBDIRS); do $(MAKE) -C $$DIR all || exit 1; done
 ifdef CONFIG_APP_CGATEXT)
 	$(MAKE) -C cgatext
+endif
+ifdef CONFIG_APP_ROMPRG
+	$(MAKE) -C romprg
 endif
 
 install:

@@ -100,7 +100,7 @@ static void rs_release(struct tty *tty)
 {
     struct serial_info *port = &ports[tty->minor - RS_MINOR_OFFSET];
 
-    debug_tty("SERIAL close %d\n", current->pid);
+    debug_tty("SERIAL close %P\n");
     if (--tty->usecount == 0) {
 	outb(0, port->io + UART_IER);	/* Disable all interrupts */
 	tty_freeq(tty);
@@ -147,7 +147,7 @@ static int rs_open(struct tty *tty)
     struct serial_info *port = &ports[tty->minor - RS_MINOR_OFFSET];
     int err;
 
-    debug_tty("SERIAL open %d\n", current->pid);
+    debug_tty("SERIAL open %P\n");
 
     /* increment use count, don't init if already open*/
     if (tty->usecount++)
@@ -188,7 +188,7 @@ void rs_conout(dev_t dev, int c)
 {
     struct serial_info *sp = &ports[MINOR(dev) - RS_MINOR_OFFSET];
 
-    while (!(inb(sp->io + UART_LSR) & UART_LSR_TEMT))
+    while (!(inb(sp->io + UART_LSR) & UART_LSR_THRE))
 	continue;
     outb(c, sp->io + UART_TX);
 }
@@ -216,7 +216,7 @@ void INITPROC serial_init(void)
 	    printk("Can't get serial IRQ %d\n", sp->irq);
 	else {
 	    sp->tty = tty;
-	    printk("ttyS%d at 0x%x, irq %d\n", sp-ports, sp->io, sp->irq);
+	    printk("ttyS%d at %x, irq %d\n", sp-ports, sp->io, sp->irq);
 	    update_port(sp);
 	}
     }

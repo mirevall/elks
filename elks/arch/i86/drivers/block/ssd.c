@@ -1,99 +1,155 @@
 /*
  * ELKS Solid State Disk block device driver
- *	Use subdriver for particular SSD device
- *	ssd_test.c - test driver using allocated main memory
+ *      Use subdriver for particular SSD device
+ *      ssd_test.c - test driver using allocated main memory
  *
  * Rewritten June 2020 Greg Haerr
+ * Rewritten to be async I/O capable Aug 2023 Greg Haerr
  */
-//#define DEBUG 1
 #include <linuxmt/config.h>
-#include <linuxmt/rd.h>
-#include <linuxmt/major.h>
 #include <linuxmt/kernel.h>
-#include <linuxmt/mm.h>
 #include <linuxmt/errno.h>
 #include <linuxmt/debug.h>
 
-#define MAJOR_NR SSD_MAJOR
-#define SSDDISK
+#define MAJOR_NR    SSD_MAJOR
 #include "blk.h"
 #include "ssd.h"
 
-static sector_t NUM_SECTS = 0;		/* max # sectors on SSD device */
+#define IODELAY     (5*HZ/100)  /* async time delay 5/100 sec = 50msec */
+
+jiff_t ssd_timeout;
+
+static sector_t NUM_SECTS = 0;  /* max # sectors on SSD device */
+static int access_count;
+char ssd_initialized;
 
 static int ssd_open(struct inode *, struct file *);
 static void ssd_release(struct inode *, struct file *);
 
 static struct file_operations ssd_fops = {
-    NULL,			/* lseek */
-    block_read,			/* read */
-    block_write,		/* write */
-    NULL,			/* readdir */
-    NULL,			/* select */
-    ssddev_ioctl,		/* ioctl */
-    ssd_open,			/* open */
-    ssd_release			/* release */
+    NULL,                       /* lseek */
+    block_read,                 /* read */
+    block_write,                /* write */
+    NULL,                       /* readdir */
+    NULL,                       /* select */
+    ssddev_ioctl,               /* ioctl */
+    ssd_open,                   /* open */
+    ssd_release                 /* release */
 };
 
-void ssd_init(void)
+void INITPROC ssd_init(void)
 {
     if (register_blkdev(MAJOR_NR, DEVICE_NAME, &ssd_fops) == 0) {
-	blk_dev[MAJOR_NR].request_fn = DEVICE_REQUEST;
-	NUM_SECTS = ssddev_init();
+        blk_dev[MAJOR_NR].request_fn = DEVICE_REQUEST;
+        NUM_SECTS = ssddev_init();
     }
     if (NUM_SECTS)
-		printk("ssd: %ldK disk\n", NUM_SECTS/2UL);
-    else printk("ssd: initialization error\n");
+        printk("ssd: %ldK disk\n", NUM_SECTS/2UL);
+    else printk("ssd: init error\n");
 }
 
 static int ssd_open(struct inode *inode, struct file *filp)
 {
-    debug("SSD: open\n");
+    debug_blk("SSD: open\n");
     if (!NUM_SECTS)
-	return -ENXIO;
+        return -ENODATA;
+    ++access_count;
     inode->i_size = NUM_SECTS << 9;
     return 0;
 }
 
 static void ssd_release(struct inode *inode, struct file *filp)
 {
-    debug("SSD: release\n");
+    kdev_t dev = inode->i_rdev;
+
+    debug_blk("SSD: release\n");
+    if (--access_count == 0) {
+        fsync_dev(dev);
+        invalidate_inodes(dev);
+        invalidate_buffers(dev);
+    }
 }
 
-static void do_ssd_request(void)
+/* called by timer interrupt if async operation */
+void ssd_io_complete(void)
 {
-    char *buf;
-    ramdesc_t seg;
-    sector_t start;
+    struct request *req;
     int ret;
 
-    while (1) {
-	struct request *req = CURRENT;
-	INIT_REQUEST(req);
+    ssd_timeout = 0;        /* stop further callbacks */
 
-	if (!NUM_SECTS) {
-	    end_request(0);
-	    continue;
-	}
+#ifdef CHECK_BLOCKIO
+    req = CURRENT;
+    if (!req) {
+        printk("ssd_io_complete: NULL request\n");
+        return;
+    }
+#endif
 
-	buf = req->rq_buffer;
-	seg = req->rq_seg;
-	start = req->rq_blocknr * (BLOCK_SIZE / SD_FIXED_SECTOR_SIZE);
-	/* all ELKS requests are 1K blocks = 2 sectors */
-	if (start >= NUM_SECTS-1) {
-	    debug("SSD: bad request sector %lu\n", start);
-	    end_request(0);
-	    continue;
-	}
-	if (req->rq_cmd == WRITE) {
-	    debug("SSD: writing block start sector %lu\n", start);
-	    ret = ssddev_write_blk(start, buf, seg);
-	} else {
-	    debug("SSD: reading block start sector %lu\n", start);
-	    ret = ssddev_read_blk(start, buf, seg);
-	}
-	if (ret == 2)
-	    end_request(1); /* success */
-	else end_request(0);
+    for (;;) {
+        char *buf;
+        int count;
+        sector_t start;
+
+        req = CURRENT;
+        if (!req)
+            return;
+        CHECK_REQUEST(req);
+
+        buf = req->rq_buffer;
+        start = req->rq_sector;
+
+        if (start + req->rq_nr_sectors > NUM_SECTS) {
+            printk("ssd: sector %lu+%d beyond max %lu\n", start,
+                req->rq_nr_sectors, NUM_SECTS);
+            end_request(0);
+            continue;
+        }
+        for (count = 0; count < req->rq_nr_sectors; count++) {
+            if (req->rq_cmd == WRITE) {
+                debug_blk("SSD: writing sector %lu\n", start);
+                ret = ssddev_write(start, buf, req->rq_seg);
+            } else {
+                debug_blk("SSD: reading sector %lu\n", start);
+                ret = ssddev_read(start, buf, req->rq_seg);
+            }
+            if (ret != 1)           /* I/O error */
+                break;
+            start++;
+            buf += SD_FIXED_SECTOR_SIZE;
+        }
+        end_request(count == req->rq_nr_sectors);
+#ifdef CONFIG_ASYNCIO
+        if (CURRENT) {              /* schedule next completion callback */
+            ssd_timeout = jiffies + IODELAY;
+        }
+        return;                     /* handle only one request per interrupt */
+#endif
+    }
+}
+
+/* called by add_request to start I/O after first request added */
+static void do_ssd_request(void)
+{
+    debug_blk("do_ssd_request\n");
+    for (;;) {
+        struct request *req = CURRENT;
+        if (!req) {
+            printk("do_ssd_request: NULL request\n");
+            return;
+        }
+        CHECK_REQUEST(req);
+
+        if (!ssd_initialized) {
+            end_request(0);
+            return;
+        }
+#ifdef CONFIG_ASYNCIO
+        ssd_timeout = jiffies + IODELAY;    /* schedule completion callback */
+        return;
+#else
+        ssd_io_complete();                  /* synchronous I/O */
+        return;
+#endif
     }
 }

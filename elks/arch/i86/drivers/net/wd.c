@@ -175,7 +175,7 @@ static void wd_get_hw_addr(word_t * data)
  * determine bus width if possible.
  */
 
-static int wd_probe(void) {
+static int INITPROC wd_probe(void) {
 	int i, tmp = 0;
 
 	for (i = 0; i < 8; i++)
@@ -561,7 +561,7 @@ static int wd_ioctl(struct inode * inode, struct file * file,
 		err = verified_memcpy_tofs((char *)arg, &netif_stat.mac_addr, 6U);
 		break;
 
-#if 0 /* unused*/
+#if UNUSED
 	case IOCTL_ETH_ADDR_SET:
 		err = -ENOSYS;
 		break;
@@ -706,14 +706,14 @@ static void wd_int(int irq, struct pt_regs * regs)
  * Ethernet main initialization (during boot)
  */
 
-void wd_drv_init(void)
+void INITPROC wd_drv_init(void)
 {
 	unsigned u;
 	word_t hw_addr[6U];
 	byte_t *mac_addr = (byte_t *)&netif_stat.mac_addr;
 
 	u = wd_probe();
-	printk("eth: %s at 0x%x, irq %d, ram 0x%x",
+	printk("eth: %s at %x, irq %d, ram %04x",
 		dev_name, net_port, net_irq, net_ram);
 	if (u) {
 		printk(" not found\n");
@@ -734,7 +734,7 @@ void wd_drv_init(void)
 /* Using this wrapper saves 44 bytes of RAM */
 /* Using word transfers when possible improves transfer time ~10%
  * on large packets (measured @ 1200 bytes) */
-void fmemcpy(void *dst_off, seg_t dst_seg, void *src_off, seg_t src_seg, size_t count, int type) {
+static void fmemcpy(void *dst_off, seg_t dst_seg, void *src_off, seg_t src_seg, size_t count, int type) {
 
 	if (type == is_8bit)
 		fmemcpyb(dst_off, dst_seg, src_off, src_seg, count);

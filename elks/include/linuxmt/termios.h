@@ -3,12 +3,8 @@
 
 #include <linuxmt/types.h>
 
-/*@-namechecks@*/
-
 /* This is just a magic number to make these relatively unique ('T') */
 #define __TERMIOS_MAJ 	('T'<<8)
-
-/*@+namechecks@*/
 
 #define TCGETS		(__TERMIOS_MAJ+0x01)
 #define TCSETS		(__TERMIOS_MAJ+0x02)
@@ -82,6 +78,7 @@ struct winsize {
     unsigned short ws_ypixel;
 };
 
+#if NOTSUPPORTED
 #define NCC 8
 struct termio {
     unsigned short c_iflag;	/* input mode flags */
@@ -91,6 +88,7 @@ struct termio {
     unsigned char c_line;	/* line discipline */
     unsigned char c_cc[NCC];	/* control characters */
 };
+#endif
 
 #define NCCS 17
 struct termios {
@@ -200,12 +198,8 @@ struct termios {
 #define  B19200	0000016
 #define  B38400	0000017
 
-/*@-namechecks@*/
-
 #define EXTA B19200
 #define EXTB B38400
-
-/*@+namechecks@*/
 
 #define CSIZE	0000060
 #define   CS5	0000000
@@ -225,8 +219,6 @@ struct termios {
 #define CIBAUD	  002003600000	/* input baud rate (not used) */
 #define CRTSCTS	  020000000000	/* flow control */
 
-/*@-namechecks@*/
-
 /* c_lflag bits */
 #define ISIG	0000001
 #define ICANON	0000002
@@ -243,8 +235,6 @@ struct termios {
 #define FLUSHO	0010000
 #define PENDIN	0040000
 #define IEXTEN	0100000
-
-/*@+namechecks@*/
 
 /* modem lines */
 #define TIOCM_LE	0x001
@@ -284,10 +274,6 @@ struct termios {
 #define N_MOUSE		2
 #define N_PPP		3
 
-/*@-namechecks@*/
-
 #define _POSIX_VDISABLE		'\0'
-
-/*@+namechecks@*/
 
 #endif

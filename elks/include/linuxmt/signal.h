@@ -17,8 +17,6 @@
 
 typedef unsigned short sigset_t;	/* at least 16 bits */
 
-/*@-namechecks@*/
-
 #define SIGHUP		 1
 #define SIGINT		 2
 #define SIGQUIT		 3
@@ -40,13 +38,9 @@ typedef unsigned short sigset_t;	/* at least 16 bits */
 
 #define _NSIG		16
 
-/*@+namechecks@*/
-
 #else
 
 typedef unsigned long sigset_t;	/* at least 32 bits */
-
-/*@-namechecks@*/
 
 #define SIGHUP		 1
 #define SIGINT		 2
@@ -178,8 +172,6 @@ typedef unsigned long sigset_t;	/* at least 32 bits */
 
 #endif /* __KERNEL__*/
 
-/*@-namechecks@*/
-
 #define SIG_BLOCK          0	/* for blocking signals */
 #define SIG_UNBLOCK        1	/* for unblocking signals */
 #define SIG_SETMASK        2	/* for setting the signal mask */
@@ -193,8 +185,6 @@ typedef void (*sighandler_t)(int);
 #pragma GCC diagnostic ignored "-Wpedantic"
 typedef __attribute__((__stdcall__)) __far void (*__kern_sighandler_t)(int);
 #pragma GCC diagnostic pop
-
-/*@+namechecks@*/ /*@ignore@*/
 
 /*
  * Because this stuff can get pretty confusing:
@@ -230,7 +220,7 @@ typedef unsigned char __sigdisposition_t;
 
 struct __kern_sigaction_struct {
     __sigdisposition_t sa_dispose;
-#if 0
+#if UNUSED
     sigset_t sa_mask;
     unsigned long sa_flags;
     void (*sa_restorer)();

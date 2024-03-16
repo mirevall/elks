@@ -125,8 +125,7 @@ int minix_lookup(register struct inode *dir, const char *name, size_t len,
 	if (S_ISDIR(dir->i_mode)) {
 	    debug("minix_lookup: Entering minix_find_entry\n");
 	    bh = minix_find_entry(dir, name, len, &de);
-	    debug("minix_lookup: minix_find_entry returned %x %d\n", bh,
-		   bh->b_mapcount);
+	    debug("minix_lookup: minix_find_entry returned %x %d\n", bh, bh->b_mapcount);
 	    if (bh) {
 		*result = iget(dir->i_sb, (ino_t) de->inode);
 		unmap_brelse(bh);
@@ -195,15 +194,11 @@ static int minix_add_entry(register struct inode *dir,
 	    return -EEXIST;
 	}
     }
-    dir->i_mtime = dir->i_ctime = CURRENT_TIME;
+    dir->i_mtime = dir->i_ctime = current_time();
     dir->i_dirt = 1;
     memcpy_fromfs(de->name, name, namelen);
     if (info->s_namelen > namelen)
 	memset(de->name + namelen, 0, info->s_namelen - namelen);
-
-#ifdef BLOAT_FS
-    dir->i_version = ++event;
-#endif
 
     de->inode = (__u16)ino;
     mark_buffer_dirty(bh);
@@ -373,7 +368,7 @@ static int empty_dir(register struct inode *inode)
     goto empt_dir;
   bad_dir:
     unmap_brelse(bh);
-    printk("Bad directory on device %s\n", kdevname(inode->i_dev));
+    printk("Bad directory on device %D\n", inode->i_dev);
   empt_dir:
     return 1;
 }
@@ -414,14 +409,10 @@ int minix_rmdir(register struct inode *dir, char *name, size_t len)
 		    printk("empty directory has nlink!=2 (%u)\n", inode->i_nlink);
 		de->inode = 0;
 
-#ifdef BLOAT_FS
-		dir->i_version = ++event;
-#endif
-
 		mark_buffer_dirty(bh);
 		inode->i_nlink = 0;
 		inode->i_dirt = 1;
-		inode->i_ctime = dir->i_ctime = dir->i_mtime = CURRENT_TIME;
+		inode->i_ctime = dir->i_ctime = dir->i_mtime = current_time();
 		dir->i_nlink--;
 		dir->i_dirt = 1;
 		retval = 0;
@@ -459,18 +450,14 @@ int minix_unlink(register struct inode *dir, char *name, size_t len)
 	current->euid != inode->i_uid && current->euid != dir->i_uid)
 	goto end_unlink;
     if (!inode->i_nlink) {
-	printk("Deleting nonexistent file (%s:%lu), %u\n",
-	       kdevname(inode->i_dev), inode->i_ino, inode->i_nlink);
+	printk("Deleting nonexistent file dev %D %lu, %u\n",
+	       inode->i_dev, inode->i_ino, inode->i_nlink);
 	inode->i_nlink = 1;
     }
     de->inode = 0;
 
-#ifdef BLOAT_FS
-    dir->i_version = ++event;
-#endif
-
     mark_buffer_dirty(bh);
-    dir->i_ctime = dir->i_mtime = CURRENT_TIME;
+    dir->i_ctime = dir->i_mtime = current_time();
     dir->i_dirt = 1;
     inode->i_nlink--;
     inode->i_ctime = dir->i_ctime;
@@ -541,7 +528,7 @@ int minix_link(register struct inode *dir, char *name, size_t len,
     }
     else if (!(error = minix_add_entry(dir, name, len, oldinode->i_ino))) {
 	oldinode->i_nlink++;
-	oldinode->i_ctime = CURRENT_TIME;
+	oldinode->i_ctime = current_time();
 	oldinode->i_dirt = 1;
     }
     iput(dir);

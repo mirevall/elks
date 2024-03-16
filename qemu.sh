@@ -5,6 +5,8 @@
 [ -x /usr/bin/qemu-system-x86_64 ] && QEMU="qemu-system-x86_64"
 [ -x /usr/local/bin/qemu-system-i386 ] && QEMU="qemu-system-i386"
 [ -x /usr/local/bin/qemu-system-x86_64 ] && QEMU="qemu-system-x86_64"
+[ -x /opt/homebrew/bin/qemu-system-i386 ] && QEMU="qemu-system-i386"
+[ -x /opt/homebrew/bin/qemu-system-x86_64 ] && QEMU="qemu-system-x86_64"
 [ -z $QEMU ] && { echo 'QEMU system emulator not found!'; exit 1; }
 echo "Using QEMU: $QEMU"
 
@@ -108,11 +110,14 @@ NET="-netdev user,id=mynet,$FWD -device ne2k_isa,irq=12,netdev=mynet"
 # Enable network dump here:
 # NETDUMP="-net dump"
 
+# Enable PC-Speaker here:
+AUDIO="-audiodev pa,id=speaker -machine pcspk-audiodev=speaker"
+
 # Determine display type ("Darwin" = OSX)
 [ `uname` != 'Darwin' ] && QDISPLAY="-display sdl"
 
 # Configure QEMU as pure ISA system
 
-exec $QEMU $CONSOLE -nodefaults -name ELKS -machine isapc -cpu 486,tsc -m 4M \
+exec $QEMU $AUDIO $CONSOLE -nodefaults -name ELKS -machine isapc -cpu 486,tsc -m 4M \
 $KEYBOARD $QDISPLAY -vga std -rtc base=utc $SERIAL \
 $NET $NETDUMP $IMAGE $DISK2 $@

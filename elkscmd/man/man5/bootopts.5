@@ -10,11 +10,8 @@ on the root filesystem and loads it. It also searches for the file
 .B /bootopts,
 which contains boot options - configuration settings affecting how ELKS starts and runs. 
 .PP
-A variety of configuration parameters can be set in the /bootopts file, many of which would
-normally require a recompilation of the kernel.
-many of which would
-normally require a recompilation of the kernelwithout requiring kernel recompilation.
-Very useful for debugging and quick configuration changes.
+A variety of configuration parameters can be set in the /bootopts file
+without requiring kernel recompilation.  Very useful for debugging and quick configuration changes.
 .PP
 .B bootopts
 allows e.g. setting the console to be serial (or any other device, such as virtual Alt2 /dev/tty2), 
@@ -36,23 +33,28 @@ file, with everything commented out:
 .PP
 .nf
 ##      
-#console=ttyS0,57600 root=fd0 net=ne0 3 # condensed
+#console=ttyS0,57600 root=fd0 net=ne0 3 # sercon+multiuser+net
 #TZ=MDT7            # timezone
 #QEMU=1             # to use ftp/ftpd in qemu
 #init=/bin/init 3   # multiuser serial
 #init=/bin/sh       # singleuser shell
 #LOCALIP=10.0.2.16
 #HOSTNAME=elks16
-#comirq=,,10,7      # IRQ-settings for COM1-4
-#ne0=9,0x300,,0x80
-#wd0=3,0x280,0xD000,0x80
-#3c0=9,0x330,,0x80
-#bufs=2500          # number of kernel buffers (XMS max 2500, EXT max 256)
+#comirq=,,7,10      # IRQ-settings for COM1-4
+#ne0=12,0x300,,0x80
+#wd0=10,0x300,0xCC00,0x80
+#3c0=11,0x330,,0x80
+#buf=8              # L2/EXT buffers (default 64, max 256)
+#cache=4            # L1 buffers (default 8, max 20)
+#xmsbuf=2975        # number of XMS buffers
+#umb=0xC000:0x800,0xD000:0x1000
 #sync=30            # seconds per auto-sync
 #console=ttyS0,19200 # serial console
 #console=tty2       # alt2 console
 #root=hda1          # First HD, partition 1
 #ro                 # read-only root
+#kstack             # kernel stack overflow checking
+#strace             # system call tracing
 #net=slip
 .fi
 .PP
@@ -60,10 +62,10 @@ Devices can be specified by /dev/ prefix or without, the latter is preferable to
 .PP
 Of particular importance is the
 .I init=
-option which tells the kernel which program to start after initalization. The default is
+option which tells the kernel which program to start after initialization. The default is
 .I /bin/init
 which initiates a regular multiuser, multiprocess setting. However, any ELKS program can 
-be specified which opens up vast possibilitied for both debugging and special purposes (IoT).
+be specified which opens up vast possibilities for both debugging and special purposes (IoT).
 In particular, specifying
 .B /bin/sash
 as the 'init-program' provides a very compact environment to development and debugging, which with a 
@@ -108,10 +110,10 @@ the commas may not be omitted.
 /bootopts	System configuration file
 .fi
 .SH BUGS
-Not all man pages referenced in the SEE ALSO section below exit yet.
+Not all man pages referenced in the SEE ALSO section below exist yet.
 .PP
 .B bootopts
-and the boot-loader that uses it have severe space contraints and can never be really user friendly.
+and the boot-loader that uses it have severe space constraints and can never be really user friendly.
 .SH "SEE ALSO"
 .BR net.cnf (5),
 .BR setup (8),

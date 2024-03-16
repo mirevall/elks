@@ -29,6 +29,7 @@ mainmenu_option next_comment
 	elif [ "$CONFIG_ARCH_8018X" = "y" ]; then
 
 		comment 'Devices'
+		hex 'RTC (AT compatible) I/O address' CONFIG_8018X_RTC 0x200
 
 		comment 'INTx pins (0=disabled)'
 		int 'INT0 Logical IRQ' CONFIG_8018X_INT0 0
@@ -36,6 +37,9 @@ mainmenu_option next_comment
 		int 'INT0 Logical IRQ' CONFIG_8018X_INT2 0
 		int 'INT0 Logical IRQ' CONFIG_8018X_INT3 0
 		int 'INT0 Logical IRQ' CONFIG_8018X_INT4 0
+
+		define_bool CONFIG_CONSOLE_DIRECT   n
+		define_bool CONFIG_CONSOLE_8018X    y
 
 	elif [ "$CONFIG_ARCH_PC98" = "y" ]; then
 
@@ -50,11 +54,12 @@ endmenu
 mainmenu_option next_comment
 	comment 'Kernel settings'
 
-	bool 'Boot Options in /bootopts'          CONFIG_BOOTOPTS     y
+	bool 'Boot options in /bootopts'          CONFIG_BOOTOPTS     y
+	bool 'Use Async I/O in kernel'            CONFIG_ASYNCIO      n
 	bool 'Calculate process CPU usage'        CONFIG_CPU_USAGE    y
 	bool 'Real time clock in localtime'       CONFIG_TIME_RTC_LOCALTIME n
 	string 'Compiled-in TZ= timezone string'  CONFIG_TIME_TZ      ''
-	bool 'System Trace'                       CONFIG_STRACE       n
+	bool 'System tracing (set on for development)' CONFIG_TRACE   n
 	bool 'Use INT 0Fh in idle loop for timer' CONFIG_TIMER_INT0F  n
 	bool 'Use INT 1Ch from BIOS for timer'    CONFIG_TIMER_INT1C  n
 

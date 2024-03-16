@@ -1,69 +1,45 @@
 #ifndef _BLK_H
 #define _BLK_H
 
+#include <linuxmt/config.h>
+#include <linuxmt/limits.h>
 #include <linuxmt/major.h>
 #include <linuxmt/sched.h>
 #include <linuxmt/kdev_t.h>
 #include <linuxmt/genhd.h>
-#include <linuxmt/config.h>
-
-/*
- * Ok, this is an expanded form so that we can use the same
- * request for paging requests when that is implemented. In
- * paging, 'bh' is NULL, and 'waiting' is used to wait for
- * read/write completion.
- */
+#include <linuxmt/trace.h>
 
 struct request {
-    kdev_t rq_dev;		/* -1 if no request */
-    unsigned char rq_cmd;	/* READ or WRITE */
-    unsigned char rq_status;
-    block32_t rq_blocknr;
-    char *rq_buffer;
-    ramdesc_t rq_seg;		/* L2 main/xms buffer segment */
-    struct buffer_head *rq_bh;
-    struct request *rq_next;
-
-#ifdef BLOAT_FS
-/* This may get used for dealing with waiting for requests later*/
-    struct task_struct *rq_waiting;
-    unsigned int rq_nr_sectors;
-    unsigned int rq_current_nr_sectors;
-#endif
+    kdev_t rq_dev;              /* block device */
+    unsigned char rq_cmd;       /* READ or WRITE */
+    unsigned char rq_status;    /* RQ_INACTIVE or RQ_ACTIVE */
+    sector_t rq_sector;         /* start device logical sector # */
+    unsigned int rq_nr_sectors; /* multi-sector I/O # sectors */
+    char *rq_buffer;            /* I/O buffer address */
+    ramdesc_t rq_seg;           /* L1 or L2 ext/xms buffer segment */
+    struct buffer_head *rq_bh;  /* system buffer head for notifications and locking */
+    struct request *rq_next;    /* next request, used when async I/O */
+    int rq_errors;              /* only used by direct floppy driver */
 };
 
-#define RQ_INACTIVE	0
-#define RQ_ACTIVE	1
+#define RQ_INACTIVE     0
+#define RQ_ACTIVE       1
 
 /*
- * This is used in the elevator algorithm: Note that reads always go before
- * writes. This is natural: reads are much more time-critical than writes.
- *
- * Update: trying with writes being preferred due to test
- * by Alessandro Rubini..
+ * This is used in the elevator algorithm.  We don't prioritise reads
+ * over writes any more --- although reads are more time-critical than
+ * writes, by treating them equally we increase filesystem throughput.
+ * This turns out to give better overall performance.  -- sct
  */
 
 #define IN_ORDER(s1,s2) \
-((s1)->rq_cmd > (s2)->rq_cmd || ((s1)->rq_cmd == (s2)->rq_cmd && \
 ((s1)->rq_dev < (s2)->rq_dev || (((s1)->rq_dev == (s2)->rq_dev && \
-(s1)->rq_blocknr < (s2)->rq_blocknr)))))
+(s1)->rq_sector < (s2)->rq_sector)))
 
 struct blk_dev_struct {
     void (*request_fn) ();
     struct request *current_request;
 };
-
-/* For bioshd.c, idequery.c */
-struct drive_infot {            /* CHS per drive*/
-    int cylinders;
-    int sectors;
-    int heads;
-    int sector_size;
-    int fdtype;                 /* floppy fd_types[] index  or -1 if hd */
-};
-extern struct drive_infot *last_drive;	/* set to last drivep-> used in read/write */
-
-extern unsigned char hd_drive_map[];
 
 extern struct blk_dev_struct blk_dev[MAX_BLKDEV];
 extern void resetup_one_dev(struct gendisk *dev, int drive);
@@ -75,147 +51,106 @@ extern void resetup_one_dev(struct gendisk *dev, int drive);
  * hard-disks, floppies, SSD and ramdisk.
  */
 
-#ifdef RAMDISK
+#if (MAJOR_NR == RAM_MAJOR)
 
 /* ram disk */
 #define DEVICE_NAME "rd"
 #define DEVICE_REQUEST do_rd_request
-#define DEVICE_NR(device) ((device) & 7)
-#define DEVICE_ON(device)
+#define DEVICE_NR(device) ((device) & 1)
 #define DEVICE_OFF(device)
 
-#endif
-
-#ifdef SSDDISK
+#elif (MAJOR_NR == SSD_MAJOR)
 
 /* solid-state disk */
 #define DEVICE_NAME "ssd"
 #define DEVICE_REQUEST do_ssd_request
-#define DEVICE_NR(device) ((device) & 3)
-#define DEVICE_ON(device)
+#define DEVICE_NR(device) ((device) & 0)
 #define DEVICE_OFF(device)
 
-#endif
+#elif (MAJOR_NR == FLOPPY_MAJOR)
 
-#ifdef FLOPPYDISK
+static void floppy_off(int nr);
 
-static void floppy_on();	/*(unsigned int nr); */
-static void floppy_off();	/*(unsigned int nr); */
-
-#define DEVICE_NAME "fd"
-#define DEVICE_INTR do_floppy
+#define DEVICE_NAME "df"
 #define DEVICE_REQUEST do_fd_request
-#define DEVICE_NR(device) ((device) & 3)
-#define DEVICE_ON(device) floppy_on(DEVICE_NR(device))
+#define DEVICE_NR(device) ((device) & 1)
 #define DEVICE_OFF(device) floppy_off(DEVICE_NR(device))
 
-#endif
-
-#ifdef ATDISK
+#elif (MAJOR_NR == ATHD_MAJOR)
 
 #define DEVICE_NAME "hd"
 #define DEVICE_REQUEST do_directhd_request
 #define DEVICE_NR(device) (MINOR(device)>>6)
-#define DEVICE_ON(device)
 #define DEVICE_OFF(device)
 
-#endif
-
-#ifdef BIOSDISK
+#elif (MAJOR_NR == BIOSHD_MAJOR)
 
 #define DEVICE_NAME "bioshd"
 #define DEVICE_REQUEST do_bioshd_request
 #define DEVICE_NR(device) (MINOR(device)>>MINOR_SHIFT)
-#define DEVICE_ON(device)
 #define DEVICE_OFF(device)
 
-#endif
-
-#ifdef METADISK
+#elif (MAJOR_NR == UDD_MAJOR)
 
 #define DEVICE_NAME "udd"
 #define DEVICE_REQUEST do_meta_request
 #define DEVICE_NR(device) (MINOR(device))
-#define DEVICE_ON(device)
 #define DEVICE_OFF(device)
 
 #endif
 
-#define CURRENT		(blk_dev[MAJOR_NR].current_request)
-#define CURRENT_DEV	DEVICE_NR(CURRENT->rq_dev)
+#define CURRENT         (blk_dev[MAJOR_NR].current_request)
+#define CURRENT_DEV     DEVICE_NR(CURRENT->rq_dev)
 
 static void (DEVICE_REQUEST) ();
 
+extern struct wait_queue wait_for_request;
+
 static void end_request(int uptodate)
 {
-    register struct request *req;
-    register struct buffer_head *bh;
+    struct request *req;
+    struct buffer_head *bh;
 
     req = CURRENT;
 
     if (!uptodate) {
-	printk("%s: I/O error: ", DEVICE_NAME);
-	printk("dev %x, block %lu\n", req->rq_dev, req->rq_blocknr);
-
-#ifdef MULTI_BH
-#ifdef BLOAT_FS
-	req->rq_nr_sectors--;
-	req->rq_nr_sectors &= ~2;	/* 1K block size, 512 byte sector*/
-#endif
-	req->rq_blocknr++;
-
-#endif
+        /*if (req->rq_errors >= 0)*/
+        printk(DEVICE_NAME ": I/O %s error dev %D lba sector %lu\n",
+            (req->rq_cmd == WRITE)? "write": "read",
+            req->rq_dev, req->rq_sector);
     }
 
-    bh = req->rq_bh;
-
-#ifdef BLOAT_FS
-    req->rq_bh = bh->b_reqnext;
-    bh->b_reqnext = NULL;
+#ifdef MULTI_BH
+    int count = BLOCK_SIZE / get_sector_size(req->rq_dev);
+    req->rq_nr_sectors -= count;
+    req->rq_sector += count;
 #endif
 
+    bh = req->rq_bh;
     mark_buffer_uptodate(bh, uptodate);
     unlock_buffer(bh);
 
-#ifdef BLOAT_FS
-    if ((bh = req->rq_bh) != NULL) {
-	req->rq_current_nr_sectors = bh->b_size >> 9;
-	if (req->rq_nr_sectors < req->rq_current_nr_sectors) {
-	    req->rq_nr_sectors = req->rq_current_nr_sectors;
-	    printk("end_request: buffer-list destroyed\n");
-	}
-	req->rq_buffer = bh->b_data;
-	return;
-    }
-#endif
-
-    DEVICE_OFF(req->dev);
+    DEVICE_OFF(req->rq_dev);
     CURRENT = req->rq_next;
-#ifdef BLOAT_FS
-    struct task_struct *p;
-    if ((p = req->rq_waiting) != NULL) {
-	req->rq_waiting = NULL;
-	p->state = TASK_RUNNING;
-	/*if (p->counter > current->counter)
-	    need_resched = 1;*/
-    }
-#endif
-
-    req->rq_dev = -1;
     req->rq_status = RQ_INACTIVE;
-#ifdef MULTI_BH
+
+#ifdef CONFIG_ASYNCIO
     wake_up(&wait_for_request);
 #endif
 }
 #endif /* MAJOR_NR */
 
-#define INIT_REQUEST(req) \
-	if (!req || req->rq_dev == -1U) \
-		return; \
-	if (MAJOR(req->rq_dev) != MAJOR_NR) \
-		panic("%s: request list destroyed (%d, %d)", \
-			DEVICE_NAME, MAJOR(req->rq_dev), MAJOR_NR); \
-	if (req->rq_bh && !EBH(req->rq_bh)->b_locked) \
-		panic("%s:block not locked", DEVICE_NAME); \
-
+#ifdef CHECK_BLOCKIO
+#define CHECK_REQUEST(req) \
+    if (req->rq_status != RQ_ACTIVE \
+        || (req->rq_cmd != READ && req->rq_cmd != WRITE) \
+        || MAJOR(req->rq_dev) != MAJOR_NR) \
+        panic(DEVICE_NAME ": bad request dev %D cmd %d active %d", \
+            req->rq_dev, req->rq_cmd, req->rq_status); \
+    if (req->rq_bh && !EBH(req->rq_bh)->b_locked) \
+        panic(DEVICE_NAME ": not locked");
+#else
+#define CHECK_REQUEST(req)
 #endif
+
+#endif /* _BLK_H */

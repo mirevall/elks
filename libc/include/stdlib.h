@@ -1,10 +1,9 @@
-/* stdlib.h  <ndf@linux.mit.edu> */
-#include <features.h>
-#include <sys/types.h>
-
 #ifndef __STDLIB_H
 #define __STDLIB_H
 
+/* stdlib.h  <ndf@linux.mit.edu> */
+#include <features.h>
+#include <sys/types.h>
 #include <malloc.h>
 
 /* Don't overwrite user definitions of NULL */
@@ -53,16 +52,18 @@ char *getenv(const char *name);
 int putenv(char *string);
 char *mktemp(char *template);
 
-void abort (void);
+noreturn void abort (void);
 int atexit (void (* function) ());
-void exit (int status);
+noreturn void exit (int status);
 int system(const char *command);
 void qsort(void *base, size_t nel, size_t width,
 	int (*compar)(/*const void *, const void * */));
+char *devname(dev_t dev, mode_t type);
 
 #ifndef __STRICT_ANSI__
 void breakpoint();
 char *itoa(int val);
+char *uitoa(unsigned int val);
 char *ltoa(long val);
 char *ltostr(long val, int radix);
 char *lltostr(long long val, int radix);

@@ -15,6 +15,7 @@
 #ifdef CONFIG_DEV_META
 
 #include <linuxmt/major.h>
+#include <linuxmt/init.h>
 #include <linuxmt/fs.h>
 #include <linuxmt/errno.h>
 #include <linuxmt/mm.h>
@@ -86,20 +87,18 @@ static void do_meta_request(void)
     }
     while (1) {
 	struct request *req = blk_dev[major].current_request;
-	if (!req || req->rq_dev < 0)
+	if (!req)
 	    return;
 	udr = new_request();
 	udr->udr_type = UDR_BLK + req->rq_cmd;
-	udr->udr_ptr = req->rq_blocknr;
+	udr->udr_ptr = req->rq_sector;
 	udr->udr_minor = MINOR(req->rq_dev);
 	post_request(driver, udr);
 
 	/* Should really check here whether we have a request */
 	if (req->rq_cmd == WRITE) {
-	    /* Can't do this, copies to the wrong task */
-#if 0
+#if UNUSED  /* FIXME Can't do this, copies to the wrong task */
 	    verified_memcpy_tofs(driver->udd_data, buff, BLOCK_SIZE);
-/* FIXME FIXME	*/
 	    fmemcpyw(driver->udd_data, driver->udd_task->mm.dseg,
 	    		buff, kernel_ds, 1024/2);
 #endif
@@ -121,10 +120,8 @@ static void do_meta_request(void)
 	udr->udr_status = 0;
 	buff = req->rq_buffer;
 	if (req->rq_cmd == READ) {
-	    /* Can't do this, copies from the wrong task */
-#if 0
+#if UNUSED  /* FIXME Can't do this, copies to the wrong task */
 	    verified_memcpy_fromfs(buff, driver->udd_data, BLOCK_SIZE);
-/* FIXME FIXME */
 	    fmemcpyw(buff, kernel_ds,
 	    		driver->udd_data, driver->udd_task->mm.dseg, 1024/2);
 #endif
@@ -134,9 +131,10 @@ static void do_meta_request(void)
     }
 }
 
-void ubd_ioctl(void)
+int ubd_ioctl(void)
 {
-/* Do nothing */
+    /* Do nothing */
+    return 0;
 }
 
 int ubd_open(struct inode *inode, struct file *filp)
@@ -145,10 +143,9 @@ int ubd_open(struct inode *inode, struct file *filp)
     return 0;
 }
 
-int ubd_release(struct inode *inode, struct file *filp)
+void ubd_release(struct inode *inode, struct file *filp)
 {
     printk("ubd_release\n");
-    return 0;
 }
 
 static struct file_operations ubd_fops = {
@@ -167,29 +164,33 @@ int ucd_lseek()
     return 0;
 }
 
-void ucd_read()
+size_t ucd_read(struct inode *inode, struct file *filp, char *data, size_t len)
 {
-/* Do nothing */
+    /* Do nothing */
+    return 0;
 }
 
-void ucd_write()
+size_t ucd_write(struct inode *inode, struct file *filp, char *data, size_t len)
 {
-/* Do nothing */
+    /* Do nothing */
+    return 0;
 }
 
-void ucd_select()
+int ucd_select(struct inode *inode, struct file *filp, int sel_type)
 {
-/* Do nothing */
+    /* Do nothing */
+    return 0;
 }
 
-void ucd_open()
+int ucd_open(register struct inode *inode, struct file *filp)
 {
-/* Do nothing */
+    /* Do nothing */
+    return 0;
 }
 
 void ucd_release()
 {
-/* Do nothing */
+    /* Do nothing */
 }
 
 static int ucd_ioctl(struct inode *inode,
@@ -326,12 +327,11 @@ static int meta_open(struct inode *inode, struct file *filp)
     return 0;
 }
 
-static int meta_release(struct inode *inode, struct file *filp)
+static void meta_release(struct inode *inode, struct file *filp)
 {
     printk("meta_release\n");
 
     /* Wake up any processes waiting for this driver */
-    return 0;
 }
 
 static struct file_operations meta_chr_fops = {
@@ -345,9 +345,9 @@ static struct file_operations meta_chr_fops = {
     meta_release		/* release */
 };
 
-void meta_init(void)
+void INITPROC meta_init(void)
 {
-    printk("Userspace device driver Copyright (C) 1999 Alistair Riddoch\n");
+    debug("Userspace device driver Copyright (C) 1999 Alistair Riddoch\n");
     if (!register_chrdev(MAJOR_NR, DEVICE_NAME, &meta_chr_fops))
 	meta_initialised = 1;
 }

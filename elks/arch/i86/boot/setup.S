@@ -79,6 +79,7 @@
 */
 
 #include <linuxmt/config.h>
+#include <linuxmt/devnum.h>
 #include <linuxmt/boot.h>
 
 // Relocating loader debug option
@@ -241,9 +242,9 @@ start_os:
 // Check for correct a.out header
 
 #ifdef CONFIG_ROMFS_FS
-	movw $0x0600,root_dev	// ROMFS is device 6,0
+	movw $DEV_ROM,root_dev	// ROMFS
 #else
-	movw $0x0380,root_dev	// floppy is device 3,128
+	movw $DEV_FD0,root_dev	// floppy 0
 #endif
 	mov $CONFIG_ROM_KERNEL_CODE,%ax	// DS = ROM a.out image
    	mov %ax,%ds
@@ -1081,7 +1082,24 @@ putc:	push %bx
 
 // Return total memory in Kbytes
 arch_get_mem:
-	mov $SETUP_MEM_KBYTES,%ax
+#if SETUP_MEM_KBYTES_ASM
+	mov $SETUP_MEM_KBYTES_ASM,%ax  // force available memory (usually for testing)
+#else
+	push %es
+	push %cx
+	push %bx
+	xor %ax,%ax
+	mov %ax,%es
+	mov $0x501,%bx
+	mov %es:(%bx),%cl
+	and $7,%cl
+	inc %cl
+	mov $128,%al
+	mul %cl
+	pop %bx
+	pop %cx
+	pop %es
+#endif
 	ret
 
 // Set INITSEG values for PC98 architecture

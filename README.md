@@ -10,18 +10,29 @@
 ELKS is a project providing a Linux-like OS for systems based on the Intel
 IA16 architecture (16-bit processors: 8086, 8088, 80188, 80186, 80286,
 NEC V20, V30 and compatibles). Such systems are ancient computers (IBM-PC
-XT / AT and clones) as well as more recent SBCs, SoCs, and FPGAs.
+XT / AT and clones) as well as more recent SBCs, SoCs, and FPGAs. ELKS supports networking and installation to HDD using both MINIX and FAT file systems.
 
+## Memory requirements
+
+* Stock images require 512k RAM
+* ELKS requires 256k RAM to run, 512k to be really useful
+* No hardware MMU required
+* ROM-based systems can run in 128k RAM
+
+## Try ELKS online
+You can [play with ELKS online](https://copy.sh/v86/?profile=elks) thanks to the v86 emulator. Login with "root" and no password. Go to the bin folder and try the different commands available. Try nxtetris. Start the game by pressing "n".
+  
 ## Watch ELKS in action
 
 - [ELKS, a 16-bit no-MMU Linux on Amstrad PC 2086](https://www.youtube.com/watch?v=eooviN1SdQ8) (thanks @pawoswm-arm)
 - [Booting ELKS on an old 286 MB from 1,44MB floppy](https://www.youtube.com/watch?v=6rwlqmdebxk) (thanks @xrayer)
 - [Epson PC Portable Q150A / Equity LT (Nec V30 8086 - 1989)](https://youtu.be/ZDffBj6zY-w?t=687) (thanks Alejandro)
+- [ELKS on ESP32 through IBM PC emulator](https://www.youtube.com/watch?v=Tr2yMjrgP8o) (thanks @fdivitto)
 
 ## Screenshots
 
 ELKS running on QEMU
-![ss1](https://github.com/jbruchon/elks/blob/master/Screenshots/ELKS_0.5.0.png)
+![ss1](https://github.com/jbruchon/elks/blob/master/Screenshots/ELKS_0.7.0.png)
 
 Olivetti M24 8086 CPU
 ![ss2](https://github.com/jbruchon/elks/blob/master/Screenshots/Olivetti_M24_8086_CPU.png)
@@ -52,8 +63,8 @@ More information is in the Documentation folder: [Index of ELKS Documentation](h
 
 Other projects and resources interesting to ELKS and our programming community:
 
+- [blink16](https://github.com/ghaerr/blink16) A visual 8086 emulator and debugger capable of booting the ELKS kernel for symbolic debugging, as well as an emulator for ELKS executables.
 - [Size Optimization Tricks](https://justine.lol/sizetricks/) A great article from Justine Tunney's blog showing how big things can be done without bloat.
-- [Blinkenlights](https://justine.lol/blinkenlights/) A visual debugger shows 8086 instruction execution starting from a PC boot sector.
 - [gcc-ia16](https://github.com/tkchia/gcc-ia16) TK Chia's gcc compiler targeted for 8086, maintained and used for the ELKS kernel and all its applications.
 
 ## More information

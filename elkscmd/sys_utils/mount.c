@@ -13,53 +13,15 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <linuxmt/fs.h>
+#include <linuxmt/limits.h>
 
 #define errmsg(str) write(STDERR_FILENO, str, sizeof(str) - 1)
 
 static char *fs_typename[] = {
 	0, "minix", "msdos", "romfs"
 };
-
-static struct dev_name_struct {
-        char *name;
-        dev_t num;
-} devices[] = {
-        /* root_dev_name needs first 5 in order*/
-        { "hda",     0x0300 },
-        { "hdb",     0x0320 },
-        { "hdc",     0x0340 },
-        { "hdd",     0x0360 },
-        { "fd0",     0x0380 },
-        { "fd1",     0x03a0 },
-        { "ssd",     0x0200 },
-        { "rd",      0x0100 },
-        { NULL,           0 }
-};
-
-/*
- * Convert a block device number to name.
- */
-static char *dev_name(dev_t dev)
-{
-        int i;
-#define NAMEOFF 5
-        static char name[10] = "/dev/";
-
-        for (i=0; i<sizeof(devices)/sizeof(devices[0])-1; i++) {
-                if (devices[i].num == (dev & 0xfff0)) {
-                        strcpy(&name[NAMEOFF], devices[i].name);
-                        if (i < 4) {
-                                if (dev & 0x07) {
-                                        name[NAMEOFF+3] = '0' + (dev & 7);
-                                        name[NAMEOFF+4] = 0;
-                                }
-                        }
-                        return name;
-                }
-        }
-        return NULL;
-}
 
 static int show_mount(dev_t dev)
 {
@@ -70,11 +32,11 @@ static int show_mount(dev_t dev)
 
 	if (statfs.f_type < FST_MSDOS) 
 		printf("%-9s (%5s) blocks %6lu free %6lu mount %s\n",
-		dev_name(statfs.f_dev), fs_typename[statfs.f_type], statfs.f_blocks,
+		devname(statfs.f_dev, S_IFBLK), fs_typename[statfs.f_type], statfs.f_blocks,
 		statfs.f_bfree, statfs.f_mntonname);
 	else
 		printf("%-9s (%5s)                           mount %s\n",
-		dev_name(statfs.f_dev), fs_typename[statfs.f_type], statfs.f_mntonname);
+		devname(statfs.f_dev, S_IFBLK), fs_typename[statfs.f_type], statfs.f_mntonname);
 	return 0;
 }
 
@@ -86,9 +48,10 @@ static void show(void)
 		show_mount(i);
 }
 
-static void usage(void)
+static int usage(void)
 {
-	errmsg("usage: mount [-a][-q][-t type] [-o ro|remount,{rw|ro}] <device> <directory>\n");
+	errmsg("usage: mount [-a][-q][-t minix|fat][-o ro|remount,{rw|ro}] <device> <directory>\n");
+    return 1;
 }
 
 int main(int argc, char **argv)
@@ -126,13 +89,13 @@ int main(int argc, char **argv)
 					type = FST_MSDOS;
 				else if (!strcmp(option, "romfs"))
 					type = FST_ROMFS;
+				else return usage();
 				argc--;
 				break;
 
 			case 'o':
 				if ((argc <= 0) || (**argv == '-')) {
-					errmsg("mount: missing option string\n");
-					return 1;
+					return usage();
 				}
 
 				option = *argv++;
@@ -143,15 +106,13 @@ int main(int argc, char **argv)
 				else if (!strcmp(option, "remount,ro"))
 					flags |= MS_REMOUNT|MS_RDONLY;
 				else {
-					errmsg("mount: bad option string\n");
-					return 1;
+					return usage();
 				}
 				argc--;
 				break;
 
 			default:
-				errmsg("mount: unknown option\n");
-				return 1;
+				return usage();
 		}
 	}
 
@@ -161,8 +122,7 @@ int main(int argc, char **argv)
 	}
 
 	if (argc != 2) {
-		usage();
-		return 1;
+		return usage();
 	}
 
 	if (flags == 0 && type == 0)

@@ -8,6 +8,7 @@
  * by commas
  */
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,11 +18,6 @@
 
 
 #define	LISTSIZE	256
-
-
-#ifndef __P
-#define __P(x)
-#endif
 
 #define COLS 80			/* Hardcoded number of columns (Yuck!) */
 

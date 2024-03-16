@@ -41,7 +41,6 @@ int sys_lseek(unsigned int fd, loff_t * p_offset, unsigned int origin)
 #ifdef BLOAT_FS
     if (offset != file->f_pos) {
 	file->f_reada = 0;
-	file->f_version = ++event;
     }
 #endif
 
@@ -63,8 +62,7 @@ int sys_lseek(unsigned int fd, loff_t * p_offset, unsigned int origin)
  *    EFAULT: buf is outside your accessible address space.
  */
 
-int fd_check(unsigned int fd, char *buf, size_t count, int rw,
-	     struct file **file)
+int fd_check(unsigned int fd, char *buf, size_t count, int rw, struct file **file)
 {
     register struct file *tfil;
 
@@ -87,13 +85,12 @@ int sys_read(unsigned int fd, char *buf, size_t count)
     struct file *file;
     int retval;
 
-    if (((retval = fd_check(fd, buf, count, FMODE_READ, &file)) == 0)
-	&& count) {
+    if (((retval = fd_check(fd, buf, count, FMODE_READ, &file)) == 0) && count) {
 	retval = -EINVAL;
 	fop = file->f_op;
 	if (fop->read) {
 	    retval = (int) fop->read(file->f_inode, file, buf, count);
-	    schedule();
+	    schedule();         // FIXME removing these slows down localhost networking
 	}
     }
     return retval;
@@ -106,8 +103,7 @@ int sys_write(unsigned int fd, char *buf, size_t count)
     register struct inode *inode;
     int written;
 
-    if (((written = fd_check(fd, buf, count, FMODE_WRITE, &file)) == 0)
-	&& (count != 0)) {
+    if (((written = fd_check(fd, buf, count, FMODE_WRITE, &file)) == 0) && count) {
 	written = -EINVAL;
 	fop = file->f_op;
 	if (fop->write) {
@@ -133,7 +129,7 @@ int sys_write(unsigned int fd, char *buf, size_t count)
 
 	    }
 	    written = (int) fop->write(inode, file, buf, count);
-	    schedule();
+	    schedule();         // FIXME removing these slows down localhost networking
 	}
     }
     return written;

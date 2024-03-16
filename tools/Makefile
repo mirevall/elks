@@ -72,6 +72,8 @@ MPC_DIST=mpc-$(MPC_VER)
 $(DISTDIR)/$(GMP_DIST).tar.bz2:
 	mkdir -p $(DISTDIR)
 	rm -rf $(DISTDIR)/gmp-*.tar.bz2 $(DISTDIR)/gmp-*.tar.bz2.tmp
+	wget -c https://ftp.gnu.org/gnu/gmp/$(GMP_DIST).tar.bz2 \
+		-O $@.tmp || \
 	wget -c https://gmplib.org/download/gmp/$(GMP_DIST).tar.bz2 \
 		-O $@.tmp
 	# Try to force GCC to be rebuilt whenever GNU MP needs to be
@@ -154,7 +156,7 @@ all:: $(CROSSDIR)/.gcc.install
 
 # EMU86
 
-EMU86_VER=f99937262b2566d3d20339e5b200e8483cdec3a2
+EMU86_VER=16dfcf0d68dccf9211a575c2a6ff90d5a192dd61
 EMU86_DIST=emu86-$(EMU86_VER)
 
 $(DISTDIR)/$(EMU86_DIST).tar.gz:

@@ -39,11 +39,12 @@ CONFIG_APM=y
 #
 # Kernel settings
 #
+# CONFIG_TRACE is not set
+# CONFIG_ASYNCIO is not set
 
 #
 # Memory manager
 #
-# CONFIG_STRACE is not set
 CONFIG_BOOTOPTS=y
 CONFIG_CPU_USAGE=y
 # CONFIG_TIME_RTC_LOCALTIME is not set
@@ -93,7 +94,6 @@ CONFIG_EXEC_COMPRESS=y
 #
 # Block device drivers
 #
-CONFIG_BLK_DEV_BIOS=y
 CONFIG_BLK_DEV_BFD=y
 CONFIG_TRACK_CACHE=y
 # CONFIG_BLK_DEV_BFD_HARD is not set
@@ -101,7 +101,6 @@ CONFIG_BLK_DEV_BHD=y
 CONFIG_IDE_PROBE=y
 # CONFIG_BLK_DEV_FD is not set
 # CONFIG_BLK_DEV_HD is not set
-# CONFIG_DMA is not set
 
 #
 # Additional block devices
@@ -127,7 +126,6 @@ CONFIG_KEYBOARD_SCANCODE=y
 CONFIG_EMUL_ANSI=y
 # CONFIG_EMUL_VT52 is not set
 # CONFIG_EMUL_NONE is not set
-# CONFIG_EMUL_ANSI_PRINTK is not set
 # CONFIG_KEYMAP_BE is not set
 # CONFIG_KEYMAP_DE is not set
 # CONFIG_KEYMAP_DV is not set
@@ -152,6 +150,9 @@ CONFIG_PSEUDO_TTY=y
 # Network device drivers
 #
 CONFIG_ETH=y
+CONFIG_ETH_NE2K=y
+CONFIG_ETH_WD=y
+CONFIG_ETH_EL3=y
 
 #
 # Userland

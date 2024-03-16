@@ -25,49 +25,50 @@
 /* Assumes ASCII values. */
 #define isalpha(c) (((unsigned char)(((c) | 0x20) - 'a')) < 26)
 
-#define A_DEFAULT 	0x07
-#define A_BOLD 		0x08
-#define A_UNDERLINE 	0x07	/* only works on MDA, normal video on EGA */
-#define A_BLINK 	0x80
-#define A_REVERSE	0x70
-#define A_BLANK		0x00
+#define A_DEFAULT       0x07
+#define A_BOLD          0x08
+#define A_UNDERLINE     0x07    /* only works on MDA, normal video on EGA */
+#define A_BLINK         0x80
+#define A_REVERSE       0x70
+#define A_BLANK         0x00
 
 /* character definitions*/
-#define BS		'\b'
-#define NL		'\n'
-#define CR		'\r'
-#define TAB		'\t'
-#define ESC		'\x1B'
-#define BEL		'\x07'
+#define BS              '\b'
+#define NL              '\n'
+#define CR              '\r'
+#define TAB             '\t'
+#define ESC             '\x1B'
+#define BEL             '\x07'
 
-#define MAXPARMS	10
+#define MAXPARMS        28
 
 struct console;
 typedef struct console Console;
 
 struct console {
-    int cx, cy;			/* cursor position */
+    int cx, cy;                 /* cursor position */
     void (*fsm)(Console *, int);
-    unsigned char attr;		/* current attribute */
-    unsigned char XN;		/* delayed newline on column 80 */
-    unsigned int vseg;		/* video segment for page */
-    int basepage;		/* start of video ram */
+    unsigned char attr;         /* current attribute */
+    unsigned char XN;           /* delayed newline on column 80 */
+    unsigned int vseg;          /* video segment for page */
+    int basepage;               /* start of video ram */
 #ifdef CONFIG_EMUL_ANSI
-    int savex, savey;		/* saved cursor position */
-    unsigned char *parmptr;	/* ptr to params */
-    unsigned char params[MAXPARMS];	/* ANSI params */
+    int savex, savey;           /* saved cursor position */
+    unsigned char *parmptr;     /* ptr to params */
+    unsigned char params[MAXPARMS];     /* ANSI params */
 #endif
 #ifdef CONFIG_EMUL_VT52
-    unsigned char tmp;		/* ESC Y ch save */
+    unsigned char tmp;          /* ESC Y ch save */
 #endif
 };
 
 static struct wait_queue glock_wait;
 static Console Con[MAX_CONSOLES], *Visible;
-static Console *glock;		/* Which console owns the graphics hardware */
-static char *CCBase;
+static Console *glock;          /* Which console owns the graphics hardware */
+static unsigned short CCBase;   /* 6845 CRTC base I/O address */
 static int Width, MaxCol, Height, MaxRow;
 static int NumConsoles = MAX_CONSOLES;
+static unsigned char isMDA, isCGA;
 
 int Current_VCminor = 0;
 int kraw = 0;
@@ -91,19 +92,33 @@ static void SetDisplayPage(register Console * C)
 
 static void PositionCursor(register Console * C)
 {
-    char *CCBasep = CCBase;
-    int Pos = C->cx + Width * C->cy + C->basepage;
+    unsigned int Pos = C->cx + Width * C->cy + C->basepage;
 
-    outb(14, CCBasep);
-    outb((Pos >> 8) & 255, CCBasep + 1);
-    outb(15, CCBasep);
-    outb(Pos & 255, CCBasep + 1);
+    outb(14, CCBase);
+    outb(Pos >> 8, CCBase + 1);
+    outb(15, CCBase);
+    outb(Pos, CCBase + 1);
+}
+
+static void DisplayCursor(int onoff)
+{
+    /* unfortunately, the cursor start/end at BDA 0x0460 can't be relied on! */
+    unsigned int v;
+
+    if (onoff)
+        v = isMDA? 0x0b0c: (isCGA? 0x0607: 0x0d0e);
+    else v = 0x2000;
+
+    outb(10, CCBase);
+    outb(v >> 8, CCBase + 1);
+    outb(11, CCBase);
+    outb(v, CCBase + 1);
 }
 
 static void VideoWrite(register Console * C, int c)
 {
     pokew((C->cx + C->cy * Width) << 1, (seg_t) C->vseg,
-	  (C->attr << 8) | (c & 255));
+          (C->attr << 8) | (c & 255));
 }
 
 static void ClearRange(register Console * C, int x, int y, int x2, int y2)
@@ -113,11 +128,11 @@ static void ClearRange(register Console * C, int x, int y, int x2, int y2)
     x2 = x2 - x + 1;
     vp = (x + y * Width) << 1;
     do {
-	for (x = 0; x < x2; x++) {
+        for (x = 0; x < x2; x++) {
             pokew(vp, (seg_t) C->vseg, (C->attr << 8) | ' ');
             vp += 2;
         }
-	vp += (Width - x2) << 1;
+        vp += (Width - x2) << 1;
     } while (++y <= y2);
 }
 
@@ -127,7 +142,7 @@ static void ScrollUp(register Console * C, int y)
 
     vp = y * (Width << 1);
     if ((unsigned int)y < MaxRow)
-	fmemcpyw((void *)vp, C->vseg,
+        fmemcpyw((void *)vp, C->vseg,
                  (void *)(vp + (Width << 1)), C->vseg, (MaxRow - y) * Width);
     ClearRange(C, 0, MaxRow, MaxCol, MaxRow);
 }
@@ -140,8 +155,8 @@ static void ScrollDown(register Console * C, int y)
 
     vp = yy * (Width << 1);
     while (--yy >= y) {
-	fmemcpyw((void *)vp, C->vseg, (void *)(vp - (Width << 1)), C->vseg, Width);
-	vp -= Width << 1;
+        fmemcpyw((void *)vp, C->vseg, (void *)(vp - (Width << 1)), C->vseg, Width);
+        vp -= Width << 1;
     }
     ClearRange(C, 0, y, MaxCol, y);
 }
@@ -157,7 +172,7 @@ static void ScrollDown(register Console * C, int y)
 void Console_set_vc(int N)
 {
     if ((N >= NumConsoles) || (Visible == &Con[N]) || glock)
-	return;
+        return;
     Visible = &Con[N];
 
     SetDisplayPage(Visible);
@@ -174,7 +189,7 @@ struct tty_ops dircon_ops = {
     Console_conout
 };
 
-void console_init(void)
+void INITPROC console_init(void)
 {
     Console *C;
     int i;
@@ -184,41 +199,44 @@ void console_init(void)
 
     /* Trust this. Cga does not support peeking at 0x40:0x84. */
     MaxRow = (Height = 25) - 1;
-    CCBase = (char *)peekw(0x63, 0x40);
+    CCBase = peekw(0x63, 0x40);
     PageSizeW = ((unsigned int)peekw(0x4C, 0x40) >> 1);
 
     VideoSeg = 0xb800;
     if (peekb(0x49, 0x40) == 7) {
-	VideoSeg = 0xB000;
-	NumConsoles = 1;
+        VideoSeg = 0xB000;
+        NumConsoles = 1;
+        isMDA = 1;
+    } else {
+        isCGA = peekw(0xA8+2, 0x40) == 0;
     }
 
     C = Con;
     Visible = C;
 
     for (i = 0; i < NumConsoles; i++) {
-	C->cx = C->cy = 0;
-	if (!i) {
-	    C->cx = peekb(0x50, 0x40);
-	    C->cy = peekb(0x51, 0x40);
-	}
-	C->fsm = std_char;
-	C->basepage = i * PageSizeW;
-	C->vseg = VideoSeg + (C->basepage >> 3);
-	C->attr = A_DEFAULT;
+        C->cx = C->cy = 0;
+        if (!i) {
+            C->cx = peekb(0x50, 0x40);
+            C->cy = peekb(0x51, 0x40);
+        }
+        C->fsm = std_char;
+        C->basepage = i * PageSizeW;
+        C->vseg = VideoSeg + (C->basepage >> 3);
+        C->attr = A_DEFAULT;
 
 #ifdef CONFIG_EMUL_ANSI
-	C->savex = C->savey = 0;
+        C->savex = C->savey = 0;
 #endif
 
-	/* Do not erase early printk() */
-	/* ClearRange(C, 0, C->cy, MaxCol, MaxRow); */
+        /* Do not erase early printk() */
+        /* ClearRange(C, 0, C->cy, MaxCol, MaxRow); */
 
-	C++;
+        C++;
     }
 
     kbd_init();
 
     printk("Direct console, %s kbd %ux%u"TERM_TYPE"(%d virtual consoles)\n",
-	   kbd_name, Width, Height, NumConsoles);
+           kbd_name, Width, Height, NumConsoles);
 }
